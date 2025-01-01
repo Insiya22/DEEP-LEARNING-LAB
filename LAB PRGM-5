@@ -1,0 +1,42 @@
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM,Dense,Flatten
+from PIL import Image
+
+(x_train,y_train),(x_test,y_test)=mnist.load_data()
+x_train=x_train/255.0
+x_test=x_test/255.0
+
+y_train=to_categorical(y_train,num_classes=10)
+y_test=to_categorical(y_test,num_classes=10)
+
+timesteps=x_train.shape[1]
+input_dim=x_train.shape[2]
+
+model=Sequential([
+    LSTM(128,input_shape=(timesteps,input_dim),activation='elu'),
+    Dense(64,activation='elu'),
+    Dense(10,activation='softmax')
+])
+
+model.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
+model.fit(x_train,y_train,epochs=5,batch_size=64,validation_split=0.2)
+
+test_loss,test_acc=model.evaluate(x_test,y_test,verbose=2)
+print(f"Test Accuracy: {test_acc:.2f}")
+
+img_path='/content/img7.png'
+img = Image.open(img_path).convert('L')
+img=img.resize((28,28))
+img_arr=np.array(img)/255.0
+img_arr=np.reshape(img_arr,(1,28,28))
+
+y_pred=model.predict(img_arr)
+pred_class=np.argmax(y_pred)
+print(f"Predicted Class:{pred_class}")
+
+print("Generated music sequence:",generated_music)
+plot_piano_roll(generated_music,notes)
