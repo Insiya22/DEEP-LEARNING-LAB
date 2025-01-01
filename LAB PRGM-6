@@ -1,0 +1,97 @@
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers,models
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import Adam
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+notes=50
+sequence=30
+num_seq=1000
+
+np.random.seed(42)
+data=np.random.randint(0,notes,size=(num_seq,sequence))
+
+x_train=data[:,:-1]
+y_train=data[:,1:]
+
+#one hot encoding
+x_train=to_categorical(x_train,num_classes=notes)
+y_train=to_categorical(y_train,num_classes=notes)
+
+model=models.Sequential()
+model.add(layers.Input(shape=(sequence-1,notes)))
+model.add(layers.Bidirectional(layers.LSTM(128,return_sequences=True)))
+model.add(layers.Bidirectional(layers.LSTM(128,return_sequences=True)))
+model.add(layers.TimeDistributed(layers.Dense(notes,activation='softmax')))
+
+optimizer=Adam(learning_rate=0.001)
+model.compile(loss='categorical_crossentropy',optimizer=optimizer,metrics=['accuracy'])
+model.fit(x_train,y_train,epochs=10,batch_size=32,validation_split=0.2)
+
+def plot_hist(history):
+  plt.figure(figsize=(12,4))
+  plt.subplot(1,2,1)
+  plt.plot(history.history['loss'],label='Training Loss')
+  plt.plot(history.history['val_loss'],label='Validation Loss')
+  plt.title('Loss over epochs')
+  plt.xlabel('Epochs')
+  plt.ylabel('Loss')
+  plt.legend()
+  plt.grid()
+
+  plt.subplot(1,2,2)
+  plt.plot(history.history['accuracy'],label='Training Accuracy')
+  plt.plot(history.history['val_accuracy'],label='Validation Accuracy')
+  plt.title('Accuracy over epochs')
+  plt.xlabel('Epochs')
+  plt.ylabel('Accuracy')
+  plt.legend()
+  plt.grid()
+
+  plt.tight_layout()
+  plt.show()
+
+plot_hist(history)
+
+
+def gen_mus(model,start,num_gen=50):
+  generated=[]
+  # Change this line to include the 'notes' dimension
+  curr_seq=to_categorical(start,num_classes=notes)
+  #curr_seq=start
+
+  for _ in range(num_gen):
+    pred=model.predict(curr_seq,verbose=0)
+    nxt=np.argmax(pred[:,-1,:],axis=-1)
+    generated.append(nxt[0])
+    nxt_onehot=to_categorical(nxt,num_classes=notes).reshape(1,1,notes)
+    curr_seq=np.concatenate([curr_seq[:,1:,:],nxt_onehot],axis=1)
+  return generated
+
+start_seq=np.random.randint(0,notes,size=(1,sequence-1))
+generated_music=gen_mus(model,start_seq)
+
+def plot_piano_roll(generated_music, num_notes):
+  """Piano-roll style plot for generated music."""
+  piano_roll=np.zeros((num_notes,len(generated_music)))
+  for t,note in enumerate(generated_music):
+      piano_roll[note,t]=1
+
+  plt.figure(figsize=(15,6))
+  sns.heatmap(
+      piano_roll,
+      cmap="coolwarm",
+      cbar=True,
+      xticklabels=10,
+      yticklabels=True,
+      linewidths=0.1,
+      linecolor='gray'
+  )
+  plt.title("Piano Roll Representation of Generated Music")
+  plt.xlabel("Time Steps")
+  plt.ylabel("Notes")
+  plt.yticks(ticks=np.arange(0,notes,step=5),labels=np.arange(0,notes,step=5))
+  plt.xticks(ticks=np.arange(0,len(generated_music),step=5),labels=np.arange(0,len(generated_music),step=5))
+  plt.show()
